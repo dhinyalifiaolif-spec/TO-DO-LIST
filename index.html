@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="id" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <title>Aplikasi Tugas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      darkMode: 'class',
+    }
+  </script>
+</head>
+<body class="p-6 bg-slate-100 dark:bg-slate-900 flex justify-center transition-colors duration-200">
+
+  <div class="w-full max-w-md bg-white dark:bg-slate-800 p-6 rounded-lg shadow transition-colors duration-200">
+    <div class="flex justify-between items-center mb-4">
+      <h1 class="text-xl font-bold text-rose-600 dark:text-rose-400">Daftar Tugas</h1>
+      <button onclick="toggleDarkMode()" class="text-xs bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 px-3 py-1.5 rounded font-medium">
+        🌙 / ☀️ Mode
+      </button>
+    </div>
+
+    <!-- Kolom Pencarian Tugas dengan Tombol Cari -->
+    <div class="flex gap-2 mb-3">
+      <input type="text" id="searchInput" placeholder="Cari tugas..." class="w-full border dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-3 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+      <button onclick="cariTugas()" class="bg-slate-600 hover:bg-slate-700 text-white px-4 py-2 rounded text-sm font-medium whitespace-nowrap">Cari</button>
+    </div>
+
+    <div class="flex justify-between items-center mb-3">
+      <div class="flex gap-2 text-xs font-semibold">
+        <span class="bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300 px-2.5 py-1 rounded">Tinggi: <span id="countTinggi">0</span></span>
+        <span class="bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300 px-2.5 py-1 rounded">Sedang: <span id="countSedang">0</span></span>
+        <span class="bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 px-2.5 py-1 rounded">Rendah: <span id="countRendah">0</span></span>
+      </div>
+      
+      <!-- Tombol Pemicu Pengambilan Data API -->
+      <button onclick="fetchTugasAwal()" class="text-xs text-rose-600 dark:text-rose-400 underline font-medium">
+        + Ambil Data API
+      </button>
+    </div>
+
+    <div class="flex flex-col gap-2 mb-4">
+      <div class="flex gap-2">
+        <input type="text" id="t" placeholder="Tugas baru..." class="w-full border dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-3 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+        <select id="p" class="border dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-2 py-2 rounded text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+          <option value="Tinggi">Tinggi</option>
+          <option value="Sedang" selected>Sedang</option>
+          <option value="Rendah">Rendah</option>
+        </select>
+      </div>
+      <div class="flex gap-2">
+        <input type="date" id="d" class="w-full border dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-600 dark:text-slate-300 px-3 py-1.5 rounded text-sm focus:outline-none focus:ring-2 focus:ring-rose-500">
+        <button onclick="add()" class="bg-rose-600 hover:bg-rose-700 text-white px-4 py-1.5 rounded text-sm font-medium whitespace-nowrap">Tambah</button>
+      </div>
+    </div>
+
+    <!-- ======================================================== -->
+    <!-- ELEMEN INDIKATOR LOADING (Awalnya tersembunyi dengan class 'hidden') -->
+    <!-- ======================================================== -->
+    <div id="loadingIndicator" class="hidden text-center py-4 text-sm text-slate-500 dark:text-slate-400">
+      ⏳ Memuat data tugas dari server...
+    </div>
+
+    <!-- List Tempat Menampilkan Tugas -->
+    <ul id="list" class="space-y-2 mb-4 text-sm"></ul>
+
+    <button onclick="del()" class="w-full bg-rose-500 hover:bg-rose-600 text-white py-2 rounded text-sm font-medium">
+      Hapus yang Selesai
+    </button>
+  </div>
+
+  <script>
+    // ========================================================
+    // FUNGSI UTAMA UNTUK FETCH DATA DARI API & EFEK LOADING
+    // ========================================================
+    async function fetchTugasAwal() {
+      let loadingEl = document.getElementById('loadingIndicator');
+      
+      // 1. INDIKATOR LOADING: Tampilkan pesan loading sebelum mengambil data
+      loadingEl.classList.remove('hidden');
+
+      try {
+        // 2. PENGAMBILAN DATA API: Mengambil data JSON dari server publik menggunakan fetch
+        let response = await fetch('https://jsonplaceholder.typicode.com/todos?_limit=3');
+        let data = await response.json(); // Mengubah respon dari server menjadi format JSON/Array
+
+        // Simulasi jeda 1.5 detik agar indikator loading dapat terlihat oleh pengguna
+        await new Promise(resolve => setTimeout(resolve, 1500));
+
+        let listEl = document.getElementById('list');
+
+        // 3. PEMROSESAN DATA API: Memasukkan data tugas hasil fetch ke dalam elemen HTML
+        data.forEach((item, index) => {
+          let prioritas = index === 0 ? 'Tinggi' : index === 1 ? 'Sedang' : 'Rendah';
+          let colorClass = prioritas === 'Tinggi' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : prioritas === 'Sedang' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
+          let isChecked = item.completed ? 'checked' : '';
+          let textStyle = item.completed ? 'line-through text-slate-400 dark:text-slate-500' : 'text-slate-800 dark:text-slate-100';
+
+          listEl.insertAdjacentHTML('beforeend', `
+            <li class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded" data-priority="${prioritas}">
+              <div class="flex items-center gap-2">
+                <input type="checkbox" ${isChecked} class="text-rose-600 focus:ring-rose-500 rounded" onclick="toggleStyle(this)">
+                <span class="cursor-pointer ${textStyle} task-title" ondblclick="edit(this)">${item.title}</span>
+              </div>
+              <span class="text-xs ${colorClass} px-2 py-0.5 rounded">${prioritas}</span>
+            </li>
+          `);
+        });
+
+        updateCount();
+      } catch (error) {
+        alert('Gagal memuat data dari server.');
+      } finally {
+        // 4. INDIKATOR LOADING: Sembunyikan kembali pesan loading setelah proses selesai (baik berhasil maupun gagal)
+        loadingEl.classList.add('hidden');
+      }
+    }
+
+    function toggleStyle(checkbox) {
+      let span = checkbox.nextElementSibling;
+      if (checkbox.checked) {
+        span.classList.add('line-through', 'text-slate-400', 'dark:text-slate-500');
+        span.classList.remove('text-slate-800', 'dark:text-slate-100');
+      } else {
+        span.classList.remove('line-through', 'text-slate-400', 'dark:text-slate-500');
+        span.classList.add('text-slate-800', 'dark:text-slate-100');
+      }
+    }
+
+    function toggleDarkMode() {
+      document.documentElement.classList.toggle('dark');
+    }
+
+    function cariTugas() {
+      let filter = document.getElementById('searchInput').value.toLowerCase();
+      let items = document.querySelectorAll('#list li');
+      
+      items.forEach(item => {
+        let text = item.querySelector('.task-title').innerText.toLowerCase();
+        if (text.includes(filter)) {
+          item.style.display = '';
+        } else {
+          item.style.display = 'none';
+        }
+      });
+    }
+
+    function updateCount() {
+      document.getElementById('countTinggi').innerText = document.querySelectorAll('li[data-priority="Tinggi"]').length;
+      document.getElementById('countSedang').innerText = document.querySelectorAll('li[data-priority="Sedang"]').length;
+      document.getElementById('countRendah').innerText = document.querySelectorAll('li[data-priority="Rendah"]').length;
+    }
+
+    function add() {
+      let t = document.getElementById('t');
+      let p = document.getElementById('p');
+      if (t.value) {
+        let colorClass = p.value === 'Tinggi' ? 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300' : p.value === 'Sedang' ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300' : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300';
+        
+        list.insertAdjacentHTML('beforeend', `
+          <li class="flex items-center justify-between p-2 bg-slate-50 dark:bg-slate-700/50 rounded" data-priority="${p.value}">
+            <div class="flex items-center gap-2">
+              <input type="checkbox" class="text-rose-600 focus:ring-rose-500 rounded" onclick="toggleStyle(this)">
+              <span class="cursor-pointer text-slate-800 dark:text-slate-100 task-title" ondblclick="edit(this)">${t.value}</span>
+            </div>
+            <span class="text-xs ${colorClass} px-2 py-0.5 rounded">${p.value}</span>
+          </li>
+        `);
+        t.value = '';
+        document.getElementById('d').value = '';
+        updateCount();
+        cariTugas();
+      }
+    }
+
+    function edit(el) {
+      let textLama = el.innerText;
+      let input = document.createElement('input');
+      input.type = 'text';
+      input.value = textLama;
+      input.className = 'border dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-800 dark:text-slate-100 px-1 py-0.5 rounded text-sm focus:outline-none focus:ring-1 focus:ring-rose-500';
+
+      input.onblur = function() {
+        el.innerText = this.value || textLama;
+        el.style.display = 'block';
+        this.remove();
+      };
+
+      input.onkeyup = function(e) {
+        if (e.key === 'Enter') this.blur();
+      };
+
+      el.style.display = 'none';
+      el.parentNode.insertBefore(input, el);
+      input.focus();
+    }
+
+    function del() {
+      document.querySelectorAll('input[type="checkbox"]:checked').forEach(c => c.closest('li').remove());
+      updateCount();
+    }
+  </script>
+
+</body>
+</html>
